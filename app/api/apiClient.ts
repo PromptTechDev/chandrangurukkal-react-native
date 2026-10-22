@@ -1,10 +1,14 @@
 import axios, {AxiosRequestConfig} from 'axios';
 import {showToast} from '../constants/commonUtils';
 import NetInfo from '@react-native-community/netinfo';
+import {getMockApiResponse, MOCK_API_ENABLED} from './mockApiData';
 
 let BASE_URL = 'http://demo.chandran.prompttechsolutions.in/Service1.svc/';
 
 export const SimpleApiClient = async (endPoint: string) => {
+  if (MOCK_API_ENABLED) {
+    return {status: 200, data: getMockApiResponse(endPoint, 'GET')};
+  }
   const isConnected = await NetInfo.fetch().then(state => state.isConnected);
   if (isConnected) {
     try {
@@ -54,6 +58,9 @@ export const SimpleApiClient = async (endPoint: string) => {
 };
 
 export const PostApiClient = async (endPoint: string) => {
+  if (MOCK_API_ENABLED) {
+    return {status: 200, data: getMockApiResponse(endPoint, 'POST')};
+  }
   const isConnected = await NetInfo.fetch().then(state => state.isConnected);
   if (isConnected) {
     try {

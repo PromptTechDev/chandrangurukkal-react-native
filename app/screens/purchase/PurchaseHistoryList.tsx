@@ -1,5 +1,5 @@
-import React, {useCallback, useEffect, useState} from 'react';
-import {Button, Image, Incubator, Text, View} from 'react-native-ui-lib';
+import React, {useCallback, useState} from 'react';
+import {Text, View} from 'react-native-ui-lib';
 import {RootStackParams, RouteNames} from '../../navigation';
 import {RouteProp, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -12,10 +12,8 @@ import {useDispatch, useSelector} from 'react-redux';
 import {RootState} from '../../../store';
 import {AnyAction, ThunkDispatch} from '@reduxjs/toolkit';
 import {fetchPurchaseList} from '../../api/purchase/PurchaseListSlice';
-import { getSplitDate } from '../../constants/commonUtils';
+import {getSplitDate} from '../../constants/commonUtils';
 import BackgroundLoader from '../../components/BackgroundLoader';
-
-const {TextField} = Incubator;
 
 export type PurchaseHistoryListNavigationProps = NativeStackNavigationProp<
   RootStackParams,
@@ -66,18 +64,28 @@ const PurchaseHistoryList: React.FC<Props> = () => {
       <Header onPress={() => navigation.goBack()} color={'black'} />
         {loadingPurchases && <BackgroundLoader/>}
 
-      <View flex paddingH-20>
-        <Text style={styles.heading}>Package History</Text>
+      <View flex style={styles.screenContent}>
+        <View style={styles.pageIntro}>
+          <Text style={styles.heading}>Package History</Text>
+          <Text style={styles.subtitle}>View your purchased treatment packages</Text>
+        </View>
 
-        {purchases?.GetPurchaseListResult.PurchasedPackages.length == 0 ?
-        <View flex center>
-          <Text text50>{purchases.GetPurchaseListResult.Message}</Text>
+        {purchases?.GetPurchaseListResult?.PurchasedPackages?.length === 0 ? (
+          <View flex center style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Text style={styles.emptyIconText}>✓</Text>
+            </View>
+            <Text style={styles.emptyTitle}>No packages yet</Text>
+            <Text style={styles.emptyMessage}>
+              {purchases.GetPurchaseListResult.Message || 'Your purchased packages will appear here.'}
+            </Text>
           </View>
-          :
-
+        ) : (
         <FlatList
           data={purchases?.GetPurchaseListResult.PurchasedPackages}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          keyExtractor={(item, index) => `${item.SalesId}-${index}`}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -88,17 +96,19 @@ const PurchaseHistoryList: React.FC<Props> = () => {
                   navigation.navigate(RouteNames.PurchaseHistoryDetails,{sid: item.SalesId, pid: item.PackageId, name: item.PackageName, date: item.BillDate, status: item.Status})
                 }>
                 <View style={styles.cardView}>
-                  <View padding-15 left>
-                    <View style={[styles.smallView]}>
-                      <Text style={styles.statusText}>{item.Status}</Text>
+                  <View style={styles.cardAccent} />
+                  <View style={styles.cardContent}>
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.cardEyebrow}>TREATMENT PACKAGE</Text>
+                      <View style={styles.statusBadge}>
+                        <Text style={styles.statusText}>{item.Status}</Text>
+                      </View>
                     </View>
-                  </View>
-
-                  <View padding-15>
-                    <Text style={styles.title}>{item.PackageName}</Text>
-
-                    <View row marginT-10 centerV>
+                    <Text style={styles.title} numberOfLines={2}>{item.PackageName}</Text>
+                    <View style={styles.cardBottomRow}>
+                      <Text style={styles.dateLabel}>Purchased</Text>
                       <Text style={styles.text}>{getSplitDate(item.BillDate)}</Text>
+                      <Text style={styles.cardArrow}>›</Text>
                     </View>
                   </View>
                 </View>
@@ -106,7 +116,7 @@ const PurchaseHistoryList: React.FC<Props> = () => {
             );
           }}
         />
-}
+        )}
       </View>
     </View>
   );

@@ -189,6 +189,10 @@ const LoginScreen: React.FC<Props> = () => {
             }}
           />
 
+          <Text style={{color: AppColors.gray, marginBottom: 12, alignSelf: 'flex-start'}}>
+            Demo mode: enter any user ID and password.
+          </Text>
+
           <CommonButton title={'Login'} onPress={LoginUser} />
 
           <TouchableOpacity

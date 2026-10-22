@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Button, Image, Incubator, Text, View} from 'react-native-ui-lib';
+import {Image, Text, View} from 'react-native-ui-lib';
 import {RootStackParams, RouteNames} from '../../navigation';
 import {RouteProp} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -7,7 +7,7 @@ import {useNavigation} from '@react-navigation/native';
 import Header from '../../components/Header';
 import {styles} from './styles';
 import AppImages from '../../constants/AppImages';
-import {FlatList, ImageBackground, RefreshControl, TouchableOpacity} from 'react-native';
+import {RefreshControl, ScrollView, TouchableOpacity} from 'react-native';
 import CommonButton from '../../components/CommonButton';
 import AppColors from '../../constants/AppColors';
 import { getSplitDate, showToast } from '../../constants/commonUtils';
@@ -15,8 +15,6 @@ import { AnyAction, ThunkDispatch } from '@reduxjs/toolkit';
 import { RootState } from '../../../store';
 import { fetchPurchaseDetails } from '../../api/purchase/PurchaseDetailsSlice';
 import { useDispatch, useSelector } from 'react-redux';
-
-const {TextField} = Incubator;
 
 export type PurchaseHistoryDetailsNavigationProps = NativeStackNavigationProp<
   RootStackParams,
@@ -34,11 +32,15 @@ const PurchaseHistoryDetails: React.FC<Props> = ({route}: any) => {
   const navigation = useNavigation<PurchaseHistoryDetailsNavigationProps>();
   const {sid, pid, name, date, status} = route.params;
   const dispatch: ThunkDispatch<RootState, any, AnyAction> = useDispatch();
-  const {details, loadingDetails} = useSelector(
+  const {details} = useSelector(
     (state: RootState) => state.PurchaseDetails,
   );
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
+  const [selectedServices, setSelectedServices] = useState<Set<number>>(new Set());
+  const packageHistory =
+    details?.GetPackageHistoryResult?.SalesId === sid
+      ? details.GetPackageHistoryResult
+      : undefined;
 
   useEffect(() => {
     dispatch(
@@ -46,10 +48,10 @@ const PurchaseHistoryDetails: React.FC<Props> = ({route}: any) => {
         uri: `GetPackageHistory?composite={"SalesId":"${sid}","PackageId":"${pid}"}`,
       }),
     );
-  }, [refreshing]);
+  }, [dispatch, pid, refreshing, sid]);
 
 
-  const toggleServiceSelection = (serviceId: any) => {
+  const toggleServiceSelection = (serviceId: number) => {
     if (status !== 'Completed') {
     setSelectedServices(prevSelected => {
       const newSelected = new Set(prevSelected);
@@ -109,72 +111,84 @@ const PurchaseHistoryDetails: React.FC<Props> = ({route}: any) => {
   return (
     <View flex backgroundColor={AppColors.whitish}>
         <Header onPress={() => navigation.goBack()} color={'white'} />
-        <View flex paddingH-20 paddingB-20>  
-          <Text style={[styles.statusText, {fontSize: 24, color:'black'}]}>
-          {name}
-          </Text>
-
-          <View row centerV marginV-10 >
-          <View style={styles.smallView} marginR-10>
-              <Text style={styles.priceText}>{status}</Text>
+        <ScrollView
+          style={styles.detailsScreen}
+          contentContainerStyle={styles.detailsContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+          <View style={styles.detailHero}>
+            <Text style={styles.detailEyebrow}>PACKAGE DETAILS</Text>
+            <Text style={styles.detailTitle}>{name}</Text>
+            <View style={styles.detailMetaRow}>
+              <View style={styles.detailStatusBadge}>
+                <Text style={styles.detailStatusText}>{status}</Text>
+              </View>
+              <Text style={styles.detailDate}>Purchased {getSplitDate(date)}</Text>
             </View>
-                      <Text style={[styles.statusText, {fontSize: 14, color:'black'}]}>{getSplitDate(date)}</Text>
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.subHeading}>Your services</Text>
+            <Text style={styles.sectionCaption}>Select services to book an appointment</Text>
+          </View>
+          {(packageHistory?.ServicePendingList ?? []).map(item => {
+            const isSelected = selectedServices.has(item.ServiceId);
+            const canSelect = status !== 'Completed' && item.Status !== 'Completed' && item.PendingQty > 0;
+            return (
+              <TouchableOpacity
+                key={`${item.ServiceId}-${item.SLNo}`}
+                style={[styles.serviceCard, isSelected && styles.serviceCardSelected]}
+                onPress={() => toggleServiceSelection(item.ServiceId)}
+                disabled={!canSelect}
+                activeOpacity={0.8}>
+                <View style={styles.serviceHeadingRow}>
+                  <Text style={styles.serviceName}>{item.ServiceName}</Text>
+                  {isSelected ? (
+                    <Image source={AppImages.ROUND} style={styles.selectedMark} />
+                  ) : (
+                    <View style={[styles.serviceState, item.PendingQty === 0 && styles.completedState]}>
+                      <Text style={[styles.serviceStateText, item.PendingQty === 0 && styles.completedStateText]}>
+                        {item.PendingQty === 0 ? 'Complete' : `${item.PendingQty} left`}
+                      </Text>
                     </View>
-        
-      <Text style={styles.subHeading}>Package Summary</Text>
-        <View flex style={styles.detailsView}>
-        
+                  )}
+                </View>
+                <View style={styles.quantityRow}>
+                  <View style={styles.quantityCell}>
+                    <Text style={styles.quantityLabel}>Total</Text>
+                    <Text style={styles.quantityValue}>{item.TotalQty}</Text>
+                  </View>
+                  <View style={styles.quantityCell}>
+                    <Text style={styles.quantityLabel}>Used</Text>
+                    <Text style={styles.quantityValue}>{item.ConsumedQty}</Text>
+                  </View>
+                  <View style={styles.quantityCell}>
+                    <Text style={styles.quantityLabel}>Remaining</Text>
+                    <Text style={styles.quantityValue}>{item.PendingQty}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
 
-          <FlatList
-            data={details?.GetPackageHistoryResult.ServicePendingList}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            renderItem={({item}) => {
-              const isSelected = selectedServices.has(item.ServiceId);
-              return (
-                <TouchableOpacity onPress={() => toggleServiceSelection(item.ServiceId)}
-                disabled={status === 'Completed' || item.Status === 'Completed'}>
-                       {isSelected && (
-                      <View absT absR>
-                        <Image source={AppImages.ROUND} />
-                      </View>
-                    )}
-                    <Text style={styles.subText}>{item.ServiceName}</Text>
-
-                    <View row>
-                      <View style={styles.innerView}>
-                        <Text style={styles.subText1}>Total Qty</Text>
-                        <Text style={styles.number}>{item.TotalQty}</Text>
-                      </View>
-
-                      <View marginH-5/>
-
-                      <View style={styles.innerView}>
-                        <Text style={styles.subText1}>Consumed Qty</Text>
-                        <Text style={styles.number}>{item.ConsumedQty}</Text>
-                      </View>
-
-                      <View marginH-5/>
-
-                      <View style={styles.innerView}>
-                        <Text style={styles.subText1}>Pending Qty</Text>
-                        <Text style={styles.number}>{item.PendingQty}</Text>
-                      </View>
-                    </View>
-                </TouchableOpacity>
-              );
-            }}
-            ItemSeparatorComponent={() => 
-            <View row flex center marginB-15 marginT-10>
-              <View style={styles.dot} />
-              <View style={styles.separator} />
-              <View style={styles.dot} />
-              </View>}
-            
-          />
-        </View>
+          <View style={styles.historySection}>
+            <Text style={styles.subHeading}>Recent activity</Text>
+            {(packageHistory?.PackageConsumingHistory ?? []).length > 0 ? (
+              packageHistory?.PackageConsumingHistory.map(entry => (
+                <View key={`${entry.SLNo}-${entry.ConsumedDate}`} style={styles.activityRow}>
+                  <View style={styles.activityDot} />
+                  <View style={styles.activityCopy}>
+                    <Text style={styles.activityName}>{entry.ServiceName}</Text>
+                    <Text style={styles.activityDate}>{getSplitDate(entry.ConsumedDate)}</Text>
+                  </View>
+                  <Text style={styles.activityQty}>×{entry.Qty}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noActivity}>No services have been used yet.</Text>
+            )}
+          </View>
+        </ScrollView>
         {status != 'Completed' &&
           <CommonButton
             title="Continue"
@@ -183,7 +197,6 @@ const PurchaseHistoryDetails: React.FC<Props> = ({route}: any) => {
             }}
           />
 }
-      </View>
     </View>
   );
 };

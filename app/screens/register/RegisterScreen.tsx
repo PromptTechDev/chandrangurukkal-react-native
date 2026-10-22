@@ -165,11 +165,12 @@ const RegisterScreen: React.FC<Props> = ({route}: any) => {
         )}`
       : `SaveSignUpDetails?composite=${JSON.stringify(input)}`;
 
-    dispatch(createRegister({uri}))
-      .then(() => {
-        dispatch(reset());
-      })
-      .catch((err: any) => console.log(err));
+      console.log('Register URI:', uri); // Log the URI for debugging
+    // dispatch(createRegister({uri}))
+    //   .then(() => {
+    //     dispatch(reset());
+    //   })
+    //   .catch((err: any) => console.log(err));
   };
 
   useEffect(() => {
@@ -401,9 +402,9 @@ const RegisterScreen: React.FC<Props> = ({route}: any) => {
           <CommonButton
             title={'Register'}
             onPress={() => {
-              if (Validate()) {
+              // if (Validate()) {
                 Register();
-              }
+              // }
             }}
           />
 
